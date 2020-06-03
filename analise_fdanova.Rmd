@@ -1,0 +1,105 @@
+---
+title: "analise_fdanova"
+author: "Rodney Fonseca"
+date: "5/24/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## FANOVA usando o pacote fdANOVA
+
+```{r}
+library("tidyverse")
+library("fdANOVA")
+```
+
+Lendo os dados dos municípios
+```{r}
+mun <- readRDS("./dados_por_municipio.rds")
+#View(mun)
+dim(mun)
+```
+
+Selecionando numero de casos confirmados por municipio e IDHMs
+```{r}
+mun_conf <- select(mun,Estado,Município,confirmed,Data,IDHM_Renda,
+              IDHM_Longevidade,IDHM_Educação) %>%
+  # deixando as datas nas colunas
+  spread(key = Data, value = confirmed) %>%
+  # removendo DF, pois pra usar fdANOVA os grupos precisam ter n>1
+  filter(Estado!="DISTRITO FEDERAL") %>%
+  # removendo municipios que tem NA em IDHM_Renda
+  filter(!is.na(IDHM_Renda))
+dim(mun_conf)
+```
+
+Removendo os NAs:
+```{r}
+mun_conf <- na.omit(mun_conf)
+```
+
+Matriz em que nas colunas teremos as curvas suavizadas de casos diarios. Valores suavizados negativos são substituídos por zero.
+```{r}
+suav_curv_dia <- matrix(nrow=84,ncol=dim(mun_conf)[1])
+for(i in 1:dim(mun_conf)[1]){
+  tmp <- as.matrix(t(mun_conf[i,6:90]))
+  tmp2 <- smooth.spline(1:84,diff(tmp))
+  suav_curv_dia[,i] <- tmp2$y
+}
+suav_curv_dia[suav_curv_dia<0] <- 0
+```
+
+Gráfico dos casos diários
+```{r}
+matplot(suav_curv_dia,type='l',lty=1,col=1)
+```
+
+Separamos os municípios de acordo com o valor de IDHM_Renda.
+```{r}
+set.seed(2020)
+# Avaliando o efeito de IHHM_Renda
+aux_groups <- as.matrix(mun_conf$IDHM_Renda > 0.7)
+plotFANOVA(x = suav_curv_dia, group.label = aux_groups,
+           means = TRUE)
+```
+
+Teste FANOVA quando [IDHM_Renda>0.7] é usado como fator:
+```{r}
+fanova <- fanova.tests(x = suav_curv_dia,
+                        group.label = aux_groups, test = "FP",
+                       parallel = TRUE, nslaves = 2)
+summary(fanova)
+```
+
+Separando os municípios de acordo com o valor de IDHM_Longevidade.
+```{r}
+aux_groups <- as.matrix(mun_conf$IDHM_Longevidade > 0.8)
+plotFANOVA(x = suav_curv_dia, group.label = aux_groups,
+           means = TRUE)
+```
+
+Teste FANOVA quando [IDHM_Longevidade>0.8] é usado como fator:
+```{r}
+fanova <- fanova.tests(x = suav_curv_dia,
+                       group.label = aux_groups, test = "FP",
+                       parallel = TRUE, nslaves = 2)
+summary(fanova)
+```
+
+Separando os municípios de acordo com o valor de IDHM_Educação.
+```{r}
+aux_groups <- as.matrix(mun_conf$IDHM_Educação > 0.6)
+plotFANOVA(x = suav_curv_dia, group.label = aux_groups,
+           means = TRUE)
+```
+
+Teste FANOVA quando [IDHM_Educação>0.6] é usado como fator:
+```{r}
+fanova <- fanova.tests(x = suav_curv_dia,
+                       group.label = aux_groups, test = "FP",
+                       parallel = TRUE, nslaves = 2)
+summary(fanova)
+```
