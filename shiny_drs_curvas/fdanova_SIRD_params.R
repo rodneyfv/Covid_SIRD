@@ -143,56 +143,68 @@ mun <- mun %>%
     recovered = pmax(0, dplyr::lag(confirmed, 14) - dplyr::lag(deaths, 0)),
     recovered = ifelse(is.na(recovered), 0, recovered),
     infected = confirmed - deaths - recovered
-  ) %>% ungroup %>% select(Estado,Município,Data,confirmed,deaths,recovered,
-                           Populacao_estimada,IDHM)
+  ) %>% ungroup %>% select(Estado,Município,codDRS, Data,confirmed,deaths,
+                           recovered, Populacao_estimada, IDHM)
 
+# agregando os dados por DRS, o que vai remover a variável Município.
+mun <- mun %>% group_by(Estado,Data,codDRS) %>%
+  dplyr::summarise(confirmed=sum(confirmed), deaths=sum(deaths),
+                   recovered=sum(recovered), 
+                   populacao=sum(Populacao_estimada),
+                   IDHM=mean(IDHM)) %>% ungroup %>% arrange(Estado,codDRS)
+View(mun)
 
 # número de casos confirmados que marca o primeiro dia epidemiológico
 caso_corte = 25
 # tabela contendo os municípios separados por estado
-EstMun <- mun %>% group_by(Estado,Município) %>% dplyr::summarise(count = n())
+EstMun <- mun %>% group_by(Estado,codDRS) %>% dplyr::summarise(count = n())
 # lista que irá armazenar as curvas
 estimadores_mun <- vector(mode = "list", length = dim(EstMun)[1])
 
 for(i in 1:dim(EstMun)[1]){
-  dados_mun <- mun %>% filter(Estado==EstMun$Estado[i] & Município==EstMun$Município[i])
+  dados_mun <- mun %>% filter(Estado==EstMun$Estado[i] & codDRS==EstMun$codDRS[i])
   linha_corte <- which(dados_mun$confirmed >= caso_corte)
   # se o município não tiver 25 ou mais casos confirmados em dia algum,
   # linha_corte será NA, mas para obter as curvas para as duas últimas
   # semanas, precisamos de pelo menos 15 dias epidemiológicos, pois uma
   # diferença é tomada durante a estimação do modelo
   if(is.na(linha_corte[1]) | length(linha_corte)<15){
-    estimadores_mun[[i]] <- list(Estado = EstMun$Estado[i], Município = EstMun$Município[i])
+    estimadores_mun[[i]] <- list(Estado = EstMun$Estado[i], 
+                                 codDRS = EstMun$codDRS[i])
   }else{
     tmp <- estima_parametros(dados_mun, 
-                             populacao = dados_mun$Populacao_estimada[1], 
+                             populacao = dados_mun$populacao[1], 
                              caso_corte = 25, 
                              expoente_H = 0.3, 
-                             recuperados_sintetico = TRUE)[c("nu_t", "beta_t", "mu_t", "R_e","datas")] %>%
+                             recuperados_sintetico = TRUE)[c("nu_t", "beta_t", 
+                                                             "mu_t", "R_e",
+                                                             "datas")] %>%
       lapply(function(x) tail(x,14))
-    estimadores_mun[[i]] <- append(tmp,list(Estado = rep(EstMun$Estado[i],14), Município = rep(EstMun$Município[i],14)))
+    estimadores_mun[[i]] <- append(tmp,list(Estado = rep(EstMun$Estado[i],14), 
+                                            codDRS = rep(EstMun$codDRS[i],14)))
   }
 }
 
-# checando para quantos municípios o modelo foi estimado
+# checando para quantas DRSs o modelo foi estimado
 tmp <- lapply(estimadores_mun, length) %>% unlist(use.names=FALSE)
 table(tmp)
 # usando a lista com as curvas, montamos um tibble contendo somente
-# os municípios para os quais o modelo foi estimado
+# as DRSs para as quais o modelo foi estimado
 tmp2 <- lapply(estimadores_mun[which(tmp == 7)], as.data.frame)
 estim_mun_df <- do.call("rbind",tmp2)
 estim_mun_df <- mutate(estim_mun_df, Data=estim_mun_df$datas) %>%
   select(-datas)
-estim_mun_df <- dplyr::left_join(estim_mun_df,mun,by=c("Estado","Município","Data")) %>%
+estim_mun_df <- dplyr::left_join(estim_mun_df,mun,by=c("Estado","codDRS","Data")) %>%
   tibble
 #View(estim_mun_df)
 rm(EstMun); rm(estimadores_mun)
 
-# checando o número de municípios que sobraram por estado
-tmp <- estim_mun_df %>% group_by(Estado,Município) %>% 
+# checando o número de DRSs que sobraram por estado
+tmp <- estim_mun_df %>% group_by(Estado,codDRS) %>% 
   dplyr::summarise(count = n())
 table(tmp$Estado)
-
+# removendo o Distrito Federal, porque esse só tem uma DRS
+estim_mun_df <- estim_mun_df %>% filter(!Estado=="DISTRITO FEDERAL")
 
 # curva dos municípios do estado usado no filtro e a respectiva
 # curva média, usando a função ggploty
@@ -201,29 +213,23 @@ tmp <- estim_mun_df %>% dplyr::filter(Estado=='SAO PAULO') %>%
   dplyr::summarize(R_e = mean(R_e))
 p <- estim_mun_df %>% dplyr::filter(Estado=='SAO PAULO') %>%
   ggplot( aes(x=Data, y=R_e,color=Estado)) +
-  geom_line(aes(group=Município), alpha = .4) +
+  geom_line(aes(group=codDRS), alpha = .4) +
   geom_line(data=tmp, alpha = .8, size = 1.5,color="black")
 #  coord_cartesian( ylim = c(0, 20))
 ggplotly(p)
 
-# criando uma variável dummy nos dados que assume 1 se o município
-# tem IDH maior que a mediana e 0 caso contrário
-tmp <- estim_mun_df %>% dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  group_by(Município) %>% dplyr::summarize(med = median(IDHM)) %>%
-  dplyr::summarize(median(med))
-mun_df_grupo <- estim_mun_df %>% dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  group_by(Município) %>% dplyr::mutate(idh_grupo = ifelse(median(IDHM)>tmp,1,0))
-View(mun_df_grupo)
-
 # criando uma matriz para ser usada na função fanova.tests, tendo as
 # curvas observadas nas colunas e pontos de discretização nas linhas
-tmp <- mun_df_grupo %>% select(Município,Data,R_e) %>%
-  tidyr::spread(key = Município, value = R_e)
+tmp <- estim_mun_df %>% filter(!Estado=="DISTRITO FEDERAL") %>%
+  select(codDRS,Data,R_e) %>%
+  tidyr::spread(key = codDRS, value = R_e)
 dados_fanova <- tmp %>% select(-Data) %>% as.matrix
 rownames(dados_fanova) <- tmp$Data %>% as.character
 # vetor com os grupos referente a cada curva observada
-grupos_fanova <- mun_df_grupo %>% select(Município,idh_grupo) %>%
-  dplyr::group_by(Município) %>% unique %>% as.matrix
+grupos_fanova <- estim_mun_df %>% 
+  filter(!Estado=="DISTRITO FEDERAL") %>%
+  select(codDRS, Estado) %>%
+  dplyr::group_by(codDRS) %>% unique %>% as.matrix
 # checando se todos os grupos tem mais de duas observações (condição
 # necessária para usar o pacote fdanova)
 prod(table(grupos_fanova[,2])>1)
@@ -238,55 +244,3 @@ fanova <- fanova.tests(x = dados_fanova,
 summary(fanova)
 
 
-grupos_fanova <- mun_df_grupo %>% select(Município,idh_grupo) %>%
-  dplyr::group_by(Município) %>% unique %>% as.matrix
-# checando se todos os grupos tem mais de duas observações (condição
-# necessária para usar o pacote fdanova)
-prod(table(grupos_fanova[,2])>1)
-
-
-# criando variável que classifica os municípios de acordo com os quartis de
-# IDHM para todos os municípios do Brasil
-grup_quartis <- mun %>%
-  group_by(Estado,Município) %>% dplyr::distinct(IDHM)
-grup_quartis <- tibble(Q1 = quantile(grup_quartis$IDHM,.25)[[1]],
-                   Q2 = quantile(grup_quartis$IDHM,.5)[[1]],
-                   Q3 = quantile(grup_quartis$IDHM,.75)[[1]])
-mun_df_grupo <- estim_mun_df %>% dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  group_by(Município) %>% dplyr::mutate(idh_grupo = ifelse(unique(IDHM)<grup_quartis$Q1,"idh<Q1",
-                                                           ifelse(unique(IDHM)<grup_quartis$Q2,"Q1<idh<Q2",
-                                                                  ifelse(unique(IDHM)<grup_quartis$Q3,"Q2<idh<Q3","idh>Q3"))))
-View(mun_df_grupo)
-
-# vetor com os grupos referente a cada curva observada
-grupos_fanova <- mun_df_grupo %>% select(Município,idh_grupo) %>%
-  dplyr::group_by(Município) %>% unique %>% as.matrix
-# checando se todos os grupos tem mais de duas observações (condição
-# necessária para usar o pacote fdanova)
-prod(table(grupos_fanova[,2])>1)
-
-# gráfico das curvas dos municípios separadas pelos grupo e com a curva
-# média plotada junto
-tmp1 <- estim_mun_df %>% left_join(mun_df_grupo) %>% 
-  dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  group_by(Data) %>%
-  dplyr::summarize(R_e = mean(R_e))
-tmp2 <- estim_mun_df %>% left_join(mun_df_grupo) %>% 
-  dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  group_by(Data,idh_grupo) %>%
-  dplyr::summarize(R_e = mean(R_e))
-p <- estim_mun_df %>% left_join(mun_df_grupo) %>% 
-  dplyr::filter(Estado=='RIO DE JANEIRO') %>%
-  ggplot( aes(x=Data, y=R_e,color=idh_grupo)) +
-  geom_line(aes(group=Município), alpha = .5, size = .5,linetype="dotted") +
-  guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
-  geom_line(data=tmp2, alpha = 1, size = 1.5) +
-  geom_line(data=tmp1, alpha = 1, size = 2,color="black")
-ggplotly(p)
-
-plotFANOVA(x = dados_fanova, group.label = grupos_fanova[,2],
-           means = TRUE)
-fanova <- fanova.tests(x = dados_fanova,
-                       group.label = grupos_fanova[,2], test = "FP",
-                       parallel = TRUE, nslaves = 2)
-summary(fanova)
