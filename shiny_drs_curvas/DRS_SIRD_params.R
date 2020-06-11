@@ -153,8 +153,8 @@ dim(tmp)
 for(i in 1:nrow(tmp)){
   # grupo do IDHM
   tmp2 <- mun %>% filter(Estado==tmp[i,]$Estado,Município==tmp[i,]$Município) %>%
-    dplyr::summarise(grupIDHM = ifelse(unique(IDHM)<quartis_idhm$Q1,"D",
-                                       ifelse(unique(IDHM)<quartis_idhm$Q2,"C",
+    dplyr::summarise(grupIDHM = ifelse(unique(IDHM)<quartis_idhm$Q1,"C",
+                                       ifelse(unique(IDHM)<quartis_idhm$Q2,"B",
                                               ifelse(unique(IDHM)<quartis_idhm$Q3,"B","A"))))
   # alterando valores das variáveis que indicam o grupo do IDHM municipal
   tmp4 <- which(mun$Estado==tmp[i,]$Estado & mun$Município==tmp[i,]$Município)
@@ -273,26 +273,35 @@ estim_drs_df <- dplyr::left_join(estim_drs_df,drs,by=c("Estado","codDRS","Data")
 rm(EstDRS); rm(estimadores_drs)
 
 # checando o número de DRSs que sobraram por estado
-tmp <- estim_drs_df %>% group_by(Estado,codDRS) %>% 
+tmp <- estim_drs_df %>% select(Estado,codDRS) %>%
+  distinct() %>% group_by(Estado) %>%
   dplyr::summarise(count = n())
-table(tmp$Estado)
-# total de DRSs por Estado
 mun %>% select(Estado,codDRS) %>% distinct() %>% group_by(Estado) %>% 
-  dplyr::summarise(n = n()) %>% print(n=30)
+  dplyr::summarise(total = n()) %>% mutate(usadas = tmp$count) %>% print(n=30)
+
+mun %>% filter(Estado=="SAO PAULO") %>% select(codDRS) %>%
+  distinct() %>% View()
+
+# tabela de contingência: classe_urb vs. drs_idhm
+estim_drs_df %>% select(codDRS,classe_urb,drs_idhm) %>%
+  distinct %>% group_by(classe_urb,drs_idhm) %>%
+  dplyr::summarise(n = n()) %>% 
+  spread(key = classe_urb, value = n)
 
 # curva dos municípios do estado usado no filtro e a respectiva
 # curva média, usando a função ggploty
-#variavel0 <- "classe_urb"
-variavel0 <- "drs_idhm"
-curva0 <- "nu_t"
+#variavel0 <- c("classe_urb","drs_idhm")
+variavel0 <- "classe_urb"
+#curva0 <- c("R_e","beta_t","mu_t","nu_t")
+curva0 <- "R_e"
 
 # curvas com todas as DRSs
 tmp <- estim_drs_df %>%
-  mutate_(curva = curva0) %>%
+  dplyr::mutate_(curva = curva0) %>%
   group_by(Data) %>%
   dplyr::summarize(curva = mean(curva))
 p <- estim_drs_df %>%
-  mutate_(variavel = variavel0, curva = curva0) %>%
+  dplyr::mutate_(variavel = variavel0, curva = curva0) %>%
   ggplot( aes(x=Data, y=curva, color=variavel)) +
   geom_line(aes(group=codDRS), alpha = .4) +
   geom_line(data=tmp, alpha = .8, size = 1.5,color="black")
@@ -318,7 +327,7 @@ ggplotly(p)
 
 
 # checando municípios na DRS observada
-mun %>% filter(codDRS == "41013") %>% select(Estado,Município) %>% distinct()
+mun %>% filter(codDRS == "11005") %>% select(Estado,Município) %>% distinct()
 
 # criando uma matriz para ser usada na função fanova.tests, tendo as
 # curvas observadas nas colunas e pontos de discretização nas linhas

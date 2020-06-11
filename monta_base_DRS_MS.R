@@ -1,6 +1,7 @@
 
 # Nome do arquivo do min. saude
-arquivo_min_saude <- "HIST_PAINEL_COVIDBR_31mai2020.xlsx"
+# arquivo_min_saude <- "HIST_PAINEL_COVIDBR_31mai2020.xlsx"
+arquivo_min_saude <- "HIST_PAINEL_COVIDBR_08jun2020.xlsx"
 
 # Nome do arquivo a ser usado como historico
 arquivo_historico <- "Dados_Municipais_wide.csv"
@@ -101,6 +102,9 @@ for(cod_ in codigos_com_erro) {
 
 # Essa base ja esta com todos os municipios indo ate a ultima data
 df_msaude <- df_msaude %>% dplyr::arrange(Codigo, Data) 
+
+# deixando Codigo como character
+df_msaude <- df_msaude %>% mutate(Codigo = as.character(Codigo))
 
 # Agora vou completar as datas anteriores usando os dados do Brasil.IO
 
