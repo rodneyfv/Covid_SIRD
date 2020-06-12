@@ -193,7 +193,6 @@ tmp <- estim_mun_df %>% group_by(Estado,Município) %>%
   dplyr::summarise(count = n())
 table(tmp$Estado)
 
-
 # curva dos municípios do estado usado no filtro e a respectiva
 # curva média, usando a função ggploty
 tmp <- estim_mun_df %>% dplyr::filter(Estado=='SAO PAULO') %>%
@@ -290,3 +289,16 @@ fanova <- fanova.tests(x = dados_fanova,
                        group.label = grupos_fanova[,2], test = "FP",
                        parallel = TRUE, nslaves = 2)
 summary(fanova)
+
+#*********************************#
+
+estim_mun_df %>% filter(Estado=="PARA") %>%
+  select(Município) %>% distinct() %>% View()
+
+p <- estim_mun_df %>% 
+  dplyr::filter(Estado=='PARA',Município=="Santarém") %>%
+  ggplot( aes(x=Data, y=R_e)) +
+  geom_line(aes(group=Município))
+#  coord_cartesian( ylim = c(0, 20))
+ggplotly(p)
+
