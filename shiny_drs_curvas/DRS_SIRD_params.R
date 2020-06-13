@@ -208,9 +208,6 @@ drs <- mun %>% group_by(Estado,Data,codDRS) %>%
                    pop_area_nao_densa = sum(pop_area_nao_densa)
                    ) %>% ungroup %>% arrange(Estado,codDRS)
 
-# número de casos confirmados que marca o primeiro dia epidemiológico
-caso_corte = 25
-
 tmp <- mun %>% select(codDRS) %>% distinct()
 drs <- drs %>% mutate(drs_idhm = NA, dsem_epd = NA, classe_urb = NA)
 for(i in 1:nrow(tmp)){
@@ -232,6 +229,12 @@ for(i in 1:nrow(tmp)){
    drs$classe_urb[tmp4] <- ifelse(tmp5>.75,"alto",ifelse(tmp5>.5,"moderado","baixo"))
 }
 
+#************************************#
+
+# Análise de curvas médias no país para diferentes variávies
+
+# número de casos confirmados que marca o primeiro dia epidemiológico
+caso_corte = 25
 
 # tabela contendo as DRSs separados por estado
 EstDRS <- drs %>% group_by(Estado, codDRS) %>% dplyr::summarise(count = n())
@@ -496,20 +499,42 @@ for(curva0 in vec_curva){
         mutate_(curva = curva0) %>%
         group_by(Data) %>%
         dplyr::summarize(curva = mean(curva))
-      tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
-        mutate_(variavel = variavel0, curva = curva0) %>%
-        group_by(Data,variavel) %>%
-        dplyr::summarize(curva = mean(curva))
-      p <- estim_drs_df %>% filter(Estado==estado0) %>%
-        mutate_(variavel = variavel0 , curva = curva0) %>%
-        ggplot(aes(x=Data, y=curva, color=variavel)) +
-         geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
-        guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
-        geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
-        geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
-        geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
-        geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
-        ggtitle(paste(estado0,":",curva0))
+      # se a variável for classe de urbanização, precisamos
+      # reordenar os fatares para aparecerem na ordem certa na legenda
+      if(variavel0=="classe_urb"){
+        tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
+          mutate(variavel = fct_relevel(classe_urb,"alto","moderado","baixo")) %>%
+          mutate_(curva = curva0) %>%
+          group_by(Data,variavel) %>%
+          dplyr::summarize(curva = mean(curva))
+        p <- estim_drs_df %>% filter(Estado==estado0) %>%
+          mutate_(curva = curva0) %>%
+          mutate(variavel = fct_relevel(classe_urb,"alto","moderado","baixo")) %>%
+          ggplot(aes(x=Data, y=curva, color=variavel)) +
+           geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+          guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+          geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+          geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+          geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+          geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+          ggtitle(paste(estado0,":",curva0))
+      }else{
+        tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
+          mutate_(variavel = variavel0, curva = curva0) %>%
+          group_by(Data,variavel) %>%
+          dplyr::summarize(curva = mean(curva))
+        p <- estim_drs_df %>% filter(Estado==estado0) %>%
+          mutate_(variavel = variavel0 , curva = curva0) %>%
+          ggplot(aes(x=Data, y=curva, color=variavel)) +
+           geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+          guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+          geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+          geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+          geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+          geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+          ggtitle(paste(estado0,":",curva0))
+      }
+      # salvando a imagem na pasta
       png(file=paste(paste(estado0,curva0,variavel0,sep = "_"),".png",sep =""))
       print(p)
       dev.off()
@@ -518,18 +543,39 @@ for(curva0 in vec_curva){
     # e para a última semana em pontilhado para o Brasil
     tmp1 <- estim_drs_df %>% mutate_(curva = curva0) %>%
       group_by(Data) %>% dplyr::summarize(curva = mean(curva))
-    tmp2 <- estim_drs_df %>% mutate_(variavel = variavel0, curva = curva0) %>%
-      group_by(Data,variavel) %>% dplyr::summarize(curva = mean(curva))
-    p <- estim_drs_df %>%
-      mutate_(variavel = variavel0, curva = curva0) %>%
-      ggplot(aes(x=Data, y=curva, color=variavel)) +
-      guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
-        geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
-      geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
-      geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
-      geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
-      geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
-      ggtitle(paste("Brasil:",curva0))
+    if(variavel0=="classe_urb"){
+      tmp2 <- estim_drs_df %>% 
+        mutate(variavel = fct_relevel(classe_urb,"alto","moderado","baixo")) %>%
+        mutate_(curva = curva0) %>% group_by(Data,variavel) %>%
+        dplyr::summarize(curva = mean(curva))
+      p <- estim_drs_df %>% 
+        mutate_(curva = curva0) %>%
+        mutate(variavel = fct_relevel(classe_urb,"alto","moderado","baixo")) %>%
+        ggplot(aes(x=Data, y=curva, color=variavel)) +
+         geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+        guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+        geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+        geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+        geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+        geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+        ggtitle(paste("Brasil:",curva0))
+    }else{
+      tmp2 <- estim_drs_df %>%
+        mutate_(variavel = variavel0, curva = curva0) %>%
+        group_by(Data,variavel) %>%
+        dplyr::summarize(curva = mean(curva))
+      p <- estim_drs_df %>%
+        mutate_(variavel = variavel0 , curva = curva0) %>%
+        ggplot(aes(x=Data, y=curva, color=variavel)) +
+         geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+        guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+        geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+        geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+        geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+        geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+        ggtitle(paste("Brasil:",curva0))
+    }
+    
     png(file=paste(paste("Brasil",curva0,variavel0,sep = "_"),".png",sep =""))
     print(p)
     dev.off()
