@@ -18,7 +18,7 @@ pacote("readr")
 pacote("readxl")
 pacote("plotly")
 pacote("stringi")
-library("fdANOVA")
+pacote("fdANOVA")
 
 #********************#
 # Funcoes definidas 
@@ -153,8 +153,8 @@ dim(tmp)
 for(i in 1:nrow(tmp)){
   # grupo do IDHM
   tmp2 <- mun %>% filter(Estado==tmp[i,]$Estado,Município==tmp[i,]$Município) %>%
-    dplyr::summarise(grupIDHM = ifelse(unique(IDHM)<quartis_idhm$Q1,"C",
-                                       ifelse(unique(IDHM)<quartis_idhm$Q2,"B",
+    dplyr::summarise(grupIDHM = ifelse(unique(IDHM)<quartis_idhm$Q1,"D",
+                                       ifelse(unique(IDHM)<quartis_idhm$Q2,"C",
                                               ifelse(unique(IDHM)<quartis_idhm$Q3,"B","A"))))
   # alterando valores das variáveis que indicam o grupo do IDHM municipal
   tmp4 <- which(mun$Estado==tmp[i,]$Estado & mun$Município==tmp[i,]$Município)
@@ -363,4 +363,175 @@ fanova <- fanova.tests(x = dados_fanova,
 summary(fanova)
 
 
+#************************************#
 
+# Rodando os programas do Aluísio
+
+caso_corte = 25
+# tabela contendo as DRSs separados por estado
+EstDRS <- drs %>% group_by(Estado, codDRS) %>% dplyr::summarise(count = n())
+# lista que irá armazenar as curvas
+estimadores_drs <- vector(mode = "list", length = dim(EstDRS)[1])
+# número de dias epidemiológicos
+num_dias <- 21
+
+for(i in 1:dim(EstDRS)[1]){
+  dados_drs <- drs %>% filter(codDRS==EstDRS$codDRS[i])
+  linha_corte <- which(dados_drs$confirmed >= caso_corte)
+  # checando se a DRS possui duas semanas epidemiológicas
+  if(!(is.na(linha_corte[1]) | length(linha_corte)<(num_dias+1))){
+    tmp <- estima_parametros(dados_drs, 
+                             populacao = dados_drs$populacao[1], 
+                             caso_corte = caso_corte, 
+                             expoente_H = 0.3, 
+                             recuperados_sintetico = TRUE)[c("nu_t", "beta_t", 
+                                                             "mu_t", "R_e",
+                                                             "datas")] %>%
+      lapply(function(x) tail(x,num_dias))
+    estimadores_drs[[i]] <- append(tmp,
+                                   list(Estado = rep(EstDRS$Estado[i],num_dias), 
+                                        codDRS = rep(EstDRS$codDRS[i],num_dias)))
+  }else{
+    estimadores_drs[[i]] <- list(Estado = EstDRS$Estado[i], 
+                                 codDRS = EstDRS$codDRS[i])
+  }
+}
+
+# checando para quantas DRSs o modelo foi estimado
+tmp <- lapply(estimadores_drs, length) %>% unlist(use.names=FALSE)
+table(tmp)
+# usando a lista com as curvas, montamos um tibble contendo somente
+# as DRSs para as quais o modelo foi estimado
+tmp2 <- lapply(estimadores_drs[which(tmp == 7)], as.data.frame)
+estim_drs_df <- do.call("rbind",tmp2)
+estim_drs_df <- mutate(estim_drs_df, Data=estim_drs_df$datas) %>%
+  select(-datas)
+estim_drs_df <- dplyr::left_join(estim_drs_df,drs,by=c("Estado","codDRS","Data")) %>%
+  tibble
+#View(estim_mun_df)
+rm(EstDRS); rm(estimadores_drs)
+
+# criando a variável A e BCD (não A), e a combinação dos
+# fatores (A,nA)x(alto,moderado,baixo)
+estim_drs_df <- estim_drs_df %>% 
+  mutate(idhm_A_nA = factor(ifelse(drs_idhm %in% c("B","C","D"), "BCD", "A"))) %>%
+  mutate(idhm_A_urb = factor(paste(idhm_A_nA, classe_urb)))
+
+#variavel0 <- c("classe_urb","drs_idhm")
+variavel0 <- "classe_urb"
+#curva0 <- c("R_e","beta_t","mu_t","nu_t")
+curva0 <- "R_e"
+estado0 <- "SAO PAULO"
+
+# curvas com médias dos grupos sem a última semana epidemiológica
+tmp1 <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(curva = curva0) %>%
+  group_by(Data) %>%
+  dplyr::summarize(curva = mean(curva))
+tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(variavel = variavel0, curva = curva0) %>%
+  group_by(Data,variavel) %>%
+  dplyr::summarize(curva = mean(curva))
+p <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(variavel = variavel0, curva = curva0) %>%
+  ggplot( aes(x=Data, y=curva, color=variavel)) +
+  #  geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="dotted") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+  geom_line(data=tmp2, alpha = 1, size = 2) +
+  geom_line(data=tmp1, alpha = 1, size = 2,color="black") + 
+  ggtitle(paste(estado0,":",curva0))
+p
+
+
+# curvas com médias dos grupos para duas semanas em linha contínua
+# e para a última semana em pontilhado para as RSs no estado filtrado
+tmp1 <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(curva = curva0) %>%
+  group_by(Data) %>%
+  dplyr::summarize(curva = mean(curva))
+tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(variavel = variavel0, curva = curva0) %>%
+  group_by(Data,variavel) %>%
+  dplyr::summarize(curva = mean(curva))
+p <- estim_drs_df %>% filter(Estado==estado0) %>%
+  mutate_(variavel = variavel0, curva = curva0) %>%
+  ggplot(aes(x=Data, y=curva, color=variavel)) +
+  # geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+  geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+  geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+  geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+  geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+  ggtitle(paste(estado0,":",curva0))
+p
+
+# curvas com médias dos grupos para duas semanas em linha contínua
+# e para a última semana em pontilhado para o Brasil
+tmp1 <- estim_drs_df %>% mutate_(curva = curva0) %>%
+  group_by(Data) %>% dplyr::summarize(curva = mean(curva))
+tmp2 <- estim_drs_df %>% mutate_(variavel = variavel0, curva = curva0) %>%
+  group_by(Data,variavel) %>% dplyr::summarize(curva = mean(curva))
+p <- estim_drs_df %>%
+  mutate_(variavel = variavel0, curva = curva0) %>%
+  ggplot(aes(x=Data, y=curva, color=variavel)) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+#  geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+  geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+  geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+  geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+  geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+  ggtitle(paste("Brasil:",curva0))
+p
+
+vec_curva <- c("R_e","beta_t","mu_t","nu_t")
+vec_variavel <- c("drs_idhm","idhm_A_nA","classe_urb","idhm_A_urb")
+vec_estado <- unique(estim_drs_df$Estado)
+
+for(curva0 in vec_curva){
+  for(variavel0 in vec_variavel){
+    for(estado0 in vec_estado){
+      # curvas com médias dos grupos para duas semanas em linha contínua
+      # e para a última semana em pontilhado para as RSs no estado filtrado
+      tmp1 <- estim_drs_df %>% filter(Estado==estado0) %>%
+        mutate_(curva = curva0) %>%
+        group_by(Data) %>%
+        dplyr::summarize(curva = mean(curva))
+      tmp2 <- estim_drs_df %>% filter(Estado==estado0) %>%
+        mutate_(variavel = variavel0, curva = curva0) %>%
+        group_by(Data,variavel) %>%
+        dplyr::summarize(curva = mean(curva))
+      p <- estim_drs_df %>% filter(Estado==estado0) %>%
+        mutate_(variavel = variavel0 , curva = curva0) %>%
+        ggplot(aes(x=Data, y=curva, color=variavel)) +
+         geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+        guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+        geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+        geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+        geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+        geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+        ggtitle(paste(estado0,":",curva0))
+      png(file=paste(paste(estado0,curva0,variavel0,sep = "_"),".png",sep =""))
+      print(p)
+      dev.off()
+    }
+    # curvas com médias dos grupos para duas semanas em linha contínua
+    # e para a última semana em pontilhado para o Brasil
+    tmp1 <- estim_drs_df %>% mutate_(curva = curva0) %>%
+      group_by(Data) %>% dplyr::summarize(curva = mean(curva))
+    tmp2 <- estim_drs_df %>% mutate_(variavel = variavel0, curva = curva0) %>%
+      group_by(Data,variavel) %>% dplyr::summarize(curva = mean(curva))
+    p <- estim_drs_df %>%
+      mutate_(variavel = variavel0, curva = curva0) %>%
+      ggplot(aes(x=Data, y=curva, color=variavel)) +
+      guides(colour = guide_legend(override.aes = list(alpha = 1,size=1))) +
+        geom_line(aes(group=codDRS), alpha = .5, size = .5,linetype="solid") +
+      geom_line(data=subset(tmp2,Data<"2020-06-01"), alpha = 1, size = 2,linetype="solid") +
+      geom_line(data=subset(tmp2,Data>="2020-06-01"), alpha = 1, size = 2,linetype="dotted") +
+      geom_line(data=subset(tmp1,Data<"2020-06-01"), alpha = 1, size = 2,color="black",linetype="solid") + 
+      geom_line(data=subset(tmp1,Data>="2020-06-01"), alpha = 1, size = 2,color="black",linetype="dotted") + 
+      ggtitle(paste("Brasil:",curva0))
+    png(file=paste(paste("Brasil",curva0,variavel0,sep = "_"),".png",sep =""))
+    print(p)
+    dev.off()
+  }
+}
