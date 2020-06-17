@@ -12,6 +12,7 @@ library(leaflet)
 library(maptools)
 library(sp)
 library(raster)
+library(plotly)
 
 # lendo os dados das RSs em SpatialPolygonsDataFrame
 mun_rs <- readRDS("../mun_rs_shp.rds")
