@@ -208,6 +208,10 @@ drs <- mun %>% group_by(Estado,Data,codDRS) %>%
                    pop_area_nao_densa = sum(pop_area_nao_densa)
                    ) %>% ungroup %>% arrange(Estado,codDRS)
 
+
+# número de casos confirmados que marca o primeiro dia epidemiológico
+caso_corte = 25
+
 tmp <- mun %>% select(codDRS) %>% distinct()
 drs <- drs %>% mutate(drs_idhm = NA, dsem_epd = NA, classe_urb = NA)
 for(i in 1:nrow(tmp)){
@@ -232,9 +236,6 @@ for(i in 1:nrow(tmp)){
 #************************************#
 
 # Análise de curvas médias no país para diferentes variávies
-
-# número de casos confirmados que marca o primeiro dia epidemiológico
-caso_corte = 25
 
 # tabela contendo as DRSs separados por estado
 EstDRS <- drs %>% group_by(Estado, codDRS) %>% dplyr::summarise(count = n())
@@ -309,6 +310,22 @@ p <- estim_drs_df %>%
   geom_line(aes(group=codDRS), alpha = .4) +
   geom_line(data=tmp, alpha = .8, size = 1.5,color="black")
 ggplotly(p)
+
+# curvas com todas as DRSs
+tmp <- estim_drs_df %>% 
+  filter(Estado=="GOIAS") %>%
+  dplyr::mutate_(curva = curva0) %>%
+  group_by(Data) %>%
+  dplyr::summarize(curva = mean(curva))
+p <- estim_drs_df %>%
+  filter(Estado=="GOIAS") %>%
+  dplyr::mutate_(curva = curva0) %>%
+  ggplot( aes(x=Data, y=curva)) +
+  geom_line(aes(group=codDRS), alpha = .4) +
+  geom_line(data=tmp, alpha = .8, size = 1.5,color="black") +
+  ggtitle(paste("GOIAS:",curva0))
+ggplotly(p)
+
 
 # curvas com médias dos grupos
 tmp1 <- estim_drs_df %>%
@@ -581,3 +598,6 @@ for(curva0 in vec_curva){
     dev.off()
   }
 }
+
+
+

@@ -1,7 +1,7 @@
 
 # Nome do arquivo do min. saude
-arquivo_min_saude <- "HIST_PAINEL_COVIDBR_16jun2020.xlsx"
-# arquivo_min_saude <- "HIST_PAINEL_COVIDBR_08jun2020.xlsx"
+#arquivo_min_saude <- "HIST_PAINEL_COVIDBR_16jun2020.xlsx"
+arquivo_min_saude <- "HIST_PAINEL_COVIDBR_18jun2020.xlsx"
 
 # Nome do arquivo a ser usado como historico
 arquivo_historico <- "Dados_Municipais_wide.csv"
@@ -63,10 +63,10 @@ df_msaude <- read_excel(paste0(arquivo_min_saude), guess_max = 100000) %>%
                 deaths = as.numeric(deaths)) %>% 
   dplyr::filter(!is.na(Municipio)) %>% dplyr::select(-Municipio)
 
-# Existem municípios com linhas duplicadas para uma mesma data de 30/05. 
-# Vamos remover agora pra seguir com a análise
-tmp <- sort(unique(df_msaude$Data),decreasing = TRUE)[c(1:2)]
-df_msaude <- df_msaude %>% filter(!(Data %in% tmp))
+# # Existem municípios com linhas duplicadas para uma mesma data de 30/05. 
+# # Vamos remover agora pra seguir com a análise
+# tmp <- sort(unique(df_msaude$Data),decreasing = TRUE)[c(1:2)]
+# df_msaude <- df_msaude %>% filter(!(Data %in% tmp))
 
 ultima_data_disponivel <- df_msaude$Data %>% max
 
