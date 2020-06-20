@@ -13,19 +13,20 @@ library(maptools)
 library(sp)
 library(raster)
 library(plotly)
+library(openxlsx)
 
 # lendo os dados das RSs em SpatialPolygonsDataFrame
-mun_rs <- readRDS("../mun_rs_shp.rds")
+mun_rs <- readRDS("../Rt_regsaude/mun_rs_shp.rds")
 # a variável código precisa ser caractere pra não dar
 # problema quando for usada como id pra identificar cliques
 mun_rs$codDRS <- as.character(mun_rs$codDRS)
 
 # lendo as curvas já salvas para as RSs com pelo menos
 # duas semanas epidemiológicas
-estim_drs_df <- readRDS("../curvas_drs_df.rds")
-# deixamos o código das RSs aqui também para poder compara
-# com os códigos em mun_rs
-estim_drs_df <- estim_drs_df %>% mutate(codDRS = as.character(codDRS))
+estim_drs_df <- readRDS(paste("../Rt_regsaude/",
+                              Sys.Date(),"_Rt_drs.rds",sep=""))
+estim_drs_df <- left_join(estim_drs_df$Rt_date,estim_drs_df$estado_nomDRS,
+                          by="codDRS")
 
 # checando para quais DRs temos curvas estimadas e
 # deixando só estas no spatialdataframe
@@ -38,4 +39,6 @@ state_popup <- paste0("<strong>Estado: </strong>",
                       mun_rs$Estado, 
                       "<br><strong>RS: </strong>", 
                       mun_rs$nomDRS)
+
+num_files <- length(list.files("../Rt_regsaude"))
 
