@@ -12,8 +12,9 @@ ui <- fluidPage(
   br(),
   column(4,dateInput("dateuser", "Data:", value = Sys.Date(),
                      max=Sys.Date(),min=Sys.Date()-num_files+2)),
-  column(4,downloadLink('downloadData', 'Baixar dados da RS')),
-  # column(4,verbatimTextOutput("comandos")),
+  #downloadLink('downloaddata', 'Baixar dados da RS'),
+  #column(4,verbatimTextOutput("comandos")),
+  uiOutput("get_the_item"),
   # caixa com opções de curvas que podem ser analisadas
   # column(4,  selectInput("curva", "Curva:",
   #                        list("Rt","beta_hat","nu_hat","mu_hat"))),

@@ -9,24 +9,24 @@ server <- function(input, output){
     estim_drs_df <- left_join(estim_drs_df$Rt_date,estim_drs_df$estado_nomDRS,
                               by="codDRS")
     estim_drs_df <- estim_drs_df %>% mutate(codDRS = as.character(codDRS))
-    codDRS_tem_curva <- mun_rs$codDRS %in% estim_drs_df$codDRS
-    mun_rs <- mun_rs[codDRS_tem_curva,]
-    
+    # indices de mun_rs para os quais temos curvas estimadas
+    codDRS_tem_curva <- which(mun_rs$codDRS %in% estim_drs_df$codDRS)
+
     # variável com texto com nome do estado e da RS, para
     # ser usada na popup do mapa
     state_popup <- paste0("<strong>Estado: </strong>", 
-                          mun_rs$Estado, 
+                          mun_rs[codDRS_tem_curva,]$Estado, 
                           "<br><strong>RS: </strong>", 
-                          mun_rs$nomDRS)
+                          mun_rs[codDRS_tem_curva,]$nomDRS)
   })
 
   
   # dados com coordenadas e nomes das RSs
   # o código da RS será usado como id pra identificar cliques
-  data=data.frame(x=coordinates(mun_rs)[,1],
-                  y=coordinates(mun_rs)[,2],
-                  id=mun_rs$codDRS,
-                  estado_id=mun_rs$Estado,
+  data=data.frame(x=coordinates(mun_rs[codDRS_tem_curva,])[,1],
+                  y=coordinates(mun_rs[codDRS_tem_curva,])[,2],
+                  id=mun_rs[codDRS_tem_curva,]$codDRS,
+                  estado_id=mun_rs[codDRS_tem_curva,]$Estado,
                   popup_id=state_popup)
 
   # create a reactive value that will store the click position
@@ -53,6 +53,10 @@ server <- function(input, output){
     data_of_click$clickedMarker <- input$mapa_marker_click
   })
   
+  output$get_the_item <- renderUI({
+    req(input$mapa_marker_click)
+    downloadLink('downloaddata', 'Baixar dados da RS') })
+  
   # Gera o gráfico usando o pacote plotly
   output$plot <- renderPlotly({
     # checa se algum ponto já foi selecionado antes de 
@@ -66,24 +70,27 @@ server <- function(input, output){
       ggplot( aes(x=date, y=Rt)) +
       ylab("Rt") + xlab("Data") +
       labs(title=as.character(input$dateuser)) +
-      geom_line()
+      geom_line() +
+      theme_light()
     ggplotly(p)
   })
   
   output$downloaddata <- downloadHandler(
-    req(input$mapa_marker_click),
     filename = function() {
       file = paste("data.xlsx", sep = "")
       return(file)
     },
     content = function(file) {
+      req(input$mapa_marker_click)
       my_place=data_of_click$clickedMarker$id
-      tmp <- filter(estim_drs_df, codDRS==my_place)
+      tmp <- estim_drs_df %>% filter(codDRS==my_place)
       openxlsx::write.xlsx(tmp,file,row.names = TRUE)
     })
+  
   # output$comandos <- renderPrint({
+  #   req(input$mapa_marker_click)
   #   my_place=data_of_click$clickedMarker$id
-  #   if(is.null(my_place)){my_place="35072"}
+  #   #if(is.null(my_place)){my_place="35072"}
   #   print(my_place)
   #   print(data_of_click$clickedMarker)
   # })
