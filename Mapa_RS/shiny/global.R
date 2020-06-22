@@ -42,4 +42,3 @@ state_popup <- paste0("<strong>Estado: </strong>",
                       "<br><strong>RS: </strong>", 
                       mun_rs[codDRS_tem_curva,]$nomDRS)
 
-

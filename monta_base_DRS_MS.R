@@ -1,7 +1,6 @@
 
 # Nome do arquivo do min. saude
-#arquivo_min_saude <- "HIST_PAINEL_COVIDBR_16jun2020.xlsx"
-arquivo_min_saude <- "HIST_PAINEL_COVIDBR_18jun2020.xlsx"
+arquivo_min_saude <- "HIST_PAINEL_COVIDBR_21jun2020.xlsx"
 
 # Nome do arquivo a ser usado como historico
 arquivo_historico <- "Dados_Municipais_wide.csv"
@@ -153,26 +152,28 @@ buracos <- anti_join(dados_sem_buracos, dados %>% dplyr::select(Codigo, Data))
 
 # Vou substituir os buracos pelo ultimo dado. Sao poucos confirmados e 
 # obitos nesses casos.
-buracos <- buracos %>% dplyr::mutate(confirmed = NA, deaths = NA)
-for(i_b in 1:nrow(buracos)) {
+if(nrow(buracos)>0){
+  buracos <- buracos %>% dplyr::mutate(confirmed = NA, deaths = NA)
+  for(i_b in 1:nrow(buracos)) {
     buracos$confirmed[i_b] <- mun %>% 
       dplyr::filter(Codigo == buracos[i_b,]$Codigo, Data < buracos[i_b,]$Data) %>% 
       dplyr::pull(confirmed) %>% last %>% as.numeric
     buracos$deaths[i_b] <- mun %>% 
       dplyr::filter(Codigo == buracos[i_b,]$Codigo, Data < buracos[i_b,]$Data) %>% 
       dplyr::pull(deaths) %>% last %>% as.numeric
+    
+  }
+  # adicionando os dados de DRS referentes aos municípios neste dataframe
+  buracos <- buracos %>% group_by(Codigo) %>%
+    inner_join(df_msaude %>% select(Codigo,codDRS,nomDRS) %>% 
+                 group_by(Codigo,codDRS,nomDRS) %>% distinct(),
+               by=c("Codigo")) %>% ungroup()
   
+  dados <- rbind(dados, buracos) %>% dplyr::arrange(Codigo, Data)
+  
+  # Check de que nao tem mais buracos:
+  nrow(dados) == nrow(dados_sem_buracos)
 }
-# adicionando os dados de DRS referentes aos municípios neste dataframe
-buracos <- buracos %>% group_by(Codigo) %>%
-  inner_join(df_msaude %>% select(Codigo,codDRS,nomDRS) %>% 
-               group_by(Codigo,codDRS,nomDRS) %>% distinct(),
-             by=c("Codigo")) %>% ungroup()
-
-dados <- rbind(dados, buracos) %>% dplyr::arrange(Codigo, Data)
-
-# Check de que nao tem mais buracos:
-nrow(dados) == nrow(dados_sem_buracos)
 
 dados_finais <- dados %>% left_join(df_caracteristicas_fixas)
 
