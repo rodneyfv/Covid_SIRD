@@ -45,8 +45,8 @@ server <- function(input, output){
   data <- reactive({
     req(input$dateuser)
     isolate({
-      data.frame(x=coordinates(mun_rs[codDRS_tem_curva(),])[,1],
-                 y=coordinates(mun_rs[codDRS_tem_curva(),])[,2],
+      data.frame(x = mun_rs[codDRS_tem_curva(),]$lat,
+                 y = mun_rs[codDRS_tem_curva(),]$lon,
                  id=mun_rs[codDRS_tem_curva(),]$codDRS,
                  estado_id=mun_rs[codDRS_tem_curva(),]$Estado,
                  popup_id=state_popup())

@@ -51,17 +51,23 @@ mun_rs <- merge(mun_rs, mun %>% dplyr::select(codDRS,nomDRS,Estado) %>%
 proj4string(mun_rs) <- CRS("+proj=longlat +datum=WGS84 +no_defs")
 
 mun_rs@data <- mun_rs@data %>% dplyr::mutate(codDRS = as.character(codDRS))
-saveRDS(mun_rs, "./Rt_regsaude/mun_rs_shp.rds")
 
-# # Lendo os dados já salvos
-# 
-# mun_rs <- readRDS("./mun_rs_shp.rds")
-# 
-# state_popup <- paste0("<strong>Estado: </strong>", 
-#                       mun_rs$Estado, 
-#                       "<br><strong>RS: </strong>", 
-#                       mun_rs$nomDRS)
-# leaflet(data = mun_rs) %>%
-#   addProviderTiles("CartoDB.Positron") %>%
-#   addPolygons(popup = state_popup) 
+# tomando as coordenadas das regiões em mun_rs
+tmp <- raster::coordinates(mun_rs)
+#View(tmp)
+#dim(tmp)
+#dim(mun_rs@data)
+#head(mun_rs@data)
+#head(tmp)
+#raster::extract(mun_rs,head(tmp))
+
+# montando um dataframe com as coordenadas de mun_rs e suas
+# variáveis correspondentes
+mun_rs_coord <- data.frame(lat = tmp[,1], lon = tmp[,2],
+                           codDRS = mun_rs@data$codDRS,
+                           nomDRS = mun_rs@data$nomDRS,
+                           Estado = mun_rs@data$Estado)
+mun_rs_coord <- mun_rs_coord %>% dplyr::mutate(codDRS = as.character(codDRS))
+saveRDS(mun_rs_coord, "./Rt_regsaude/mun_rs_coord.rds")
+
 
