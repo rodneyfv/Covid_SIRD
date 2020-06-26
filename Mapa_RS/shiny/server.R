@@ -81,8 +81,11 @@ server <- function(input, output){
   # renderUI para deixar esse link aparecer somente depois
   # que algum ponto no mapa for selecionado
   output$get_the_item <- renderUI({
-    if(is.null(data_of_click$clickedMarker)) return()
+    if(is.null(data_of_click$clickedMarker) && is.null(input$estado_rs)) return()
     req(input$mapa_marker_click)
+    req(input$selected_mun)
+    req(input$estado_rs)
+    
     downloadLink('downloaddata', 'Baixar dados da RS') })
   
   # comando que torna nula a variável que armazena dados de
@@ -91,27 +94,42 @@ server <- function(input, output){
     data_of_click$clickedMarker <- NULL
   })
   
-  # Gera o gráfico usando o pacote plotly
-  output$plot <- renderPlotly({
-    # checa se algum ponto já foi selecionado antes de 
-    # fazer o plot, se não, nada aparece
-    req(input$mapa_marker_click)
-    # se a variável com dados sobre clique for nula, a data foi
-    # alterada, logo deixamos um vazio no espaço do gráfico
+  toListen <- reactive({
+    list(input$estado_rs,input$selected_mun)
+  })
+  observeEvent(toListen(),{
     if(is.null(data_of_click$clickedMarker)) return()
-    # checando o código da RS onde o clique ocorreu
-    my_place=data_of_click$clickedMarker$id
-    # fazendo o gráfico da curva escolhida para a RS
-    # identificada pelo código correspondente ao clique
-    isolate({ # usa isolate porque depende de estim_drs_df, que é reactive
-      p <- estim_drs_df() %>% filter(codDRS==my_place) %>%
-        ggplot( aes(x=date, y=Rt)) +
-        ylab("Rt") + xlab("Data") +
-        labs(title=as.character(input$dateuser)) +
-        geom_line() +
-        theme_light()
-    })
-    ggplotly(p)
+    data_of_click$clickedMarker <- NULL
+  })
+  
+  observeEvent(input$mapa_marker_click,{
+      # Gera o gráfico usando o pacote plotly
+      output$plot <- renderPlotly({
+        if(is.null(data_of_click$clickedMarker)) return()
+        # checa se algum ponto já foi selecionado antes de 
+        # fazer o plot, se não, nada aparece
+        req(input$mapa_marker_click)
+        # se a variável com dados sobre clique for nula, a data foi
+        # alterada, logo deixamos um vazio no espaço do gráfico
+        # if(is.null(data_of_click$clickedMarker)) return()
+        # checando o código da RS onde o clique ocorreu
+        my_place=data_of_click$clickedMarker$id
+        tmp2 <- mun_rs %>% filter(codDRS==my_place)
+        isolate({
+          req(length(my_place)>0)
+          tmp <- estim_drs_df() %>% filter(codDRS==my_place)
+          })
+        # fazendo o gráfico da curva escolhida para a RS
+        # identificada pelo código correspondente ao clique
+        p <- tmp %>%
+          ggplot( aes(x=date, y=Rt)) +
+          ylab("Rt") + xlab("Data") +
+          ylim(0,4) + geom_hline(yintercept=1,size=0.8) +
+          labs(title=paste(tmp2$Estado,": ",tmp2$nomDRS)) +
+          geom_line(color="red") +
+          theme_light()
+        ggplotly(p)
+  })
   })
   
   # criando o output com um link para download dos dados
@@ -123,22 +141,76 @@ server <- function(input, output){
     },
     content = function(file) {
       req(input$mapa_marker_click)
-      if(is.null(data_of_click$clickedMarker)) return()
-      my_place=data_of_click$clickedMarker$id
+      req(input$selected_mun)
+      req(input$estado_rs)
+      if(is.null(data_of_click$clickedMarker)){
+        tmp <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
+          filter(Município==input$selected_mun)
+        my_place <- tmp$codDRS
+      }else{
+        my_place <- data_of_click$clickedMarker$id
+      }
       isolate({
         tmp <- estim_drs_df() %>% filter(codDRS==my_place)
       })
       openxlsx::write.xlsx(tmp,file,row.names = TRUE)
     })
   
+  vec_mun <- reactive({
+    req(input$estado_rs)
+    req(input$dateuser)
+    isolate({
+      vec_mun <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
+        filter(codDRS %in% mun_rs[codDRS_tem_curva(),]$codDRS) %>%
+        dplyr::select(Município) %>% distinct()
+    })
+    vec_mun
+  })
+  
+  output$get_mun <- renderUI({
+    if(is.null(input$estado_rs)) return()
+    req(input$dateuser)
+    req(input$estado_rs)
+    isolate({
+      pickerInput(
+        inputId = "selected_mun",
+        label = "Município",
+        choices = vec_mun(),
+      )
+    })
+  })
+  
+  observeEvent(input$selected_mun,{
+    req(input$selected_mun)
+    tmp <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
+      filter(Município==input$selected_mun)
+    tmp2 <- mun_rs %>% filter(codDRS==tmp$codDRS)
+    
+    if(is.null(data_of_click$clickedMarker)){
+      output$plot <- renderPlotly({
+        isolate({ # usa isolate porque depende de estim_drs_df, que é reactive
+          p <- estim_drs_df() %>% filter(codDRS==tmp2$codDRS) %>%
+            ggplot( aes(x=date, y=Rt)) +
+            ylab("Rt") + xlab("Data") +
+            ylim(0,4) + geom_hline(yintercept=1,size=0.8) +
+            labs(title=paste(tmp2$Estado,": ",tmp2$nomDRS)) +
+            geom_line(color="red") +
+            theme_light()
+        })
+        ggplotly(p)
+      })
+    }
+  })
+  
   # output$comandos <- renderPrint({
   #   req(input$mapa_marker_click)
-  #   my_place=data_of_click$clickedMarker$id
+  #   print(input$mapa_marker_click)
+  #   #my_place=data_of_click$clickedMarker$id
   #   #if(is.null(my_place)){my_place="35072"}
-  #   print(my_place)
-  #   print(data_of_click$clickedMarker)
+  #   #print(my_place)
+  #   #print(data_of_click$clickedMarker)
   # })
-  
+
 }
 
 

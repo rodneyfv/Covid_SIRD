@@ -128,7 +128,7 @@ EstDRS <- drs %>% group_by(Estado, codDRS) %>% dplyr::summarise(count = n())
 # lista que irá armazenar as curvas
 estimadores_drs <- vector(mode = "list", length = dim(EstDRS)[1])
 # número de dias epidemiológicos
-num_dias <- 14
+num_dias <- 30
 
 for(i in 1:dim(EstDRS)[1]){
   dados_drs <- drs %>% filter(codDRS==EstDRS$codDRS[i])
@@ -180,6 +180,8 @@ estim_drs_df %>% select(codDRS,classe_urb,drs_idhm) %>%
   dplyr::summarise(n = n()) %>% 
   spread(key = classe_urb, value = n)
 
+#************************************#
+
 # curva dos municípios do estado usado no filtro e a respectiva
 # curva média, usando a função ggploty
 #variavel0 <- c("classe_urb","drs_idhm")
@@ -202,6 +204,47 @@ p <- estim_drs_df %>%
   geom_line(data=tmp, alpha = .8, size = 1.5,color="black") +
   xlab("Data") + ylab(curva0) +
   ggtitle(paste(estado0,":",curva0))
+ggplotly(p)
+
+#************************************#
+
+# Plot para as RS's no estado do Pará
+
+curva0 <- "Rt"
+estado0 = "PARA"
+
+estim_drs_df %>% filter(Estado==estado0) %>%
+  select(codDRS,nomDRS) %>% distinct() %>% 
+  View()
+
+baixo_para <- c("15001","15002","15003","15004",
+                "15010","15012")
+alto_para <- c("15006","15007","15008","15009",
+                "15011","15013","15014")
+
+estim_drs_df <- estim_drs_df %>% 
+  dplyr::mutate(codDRS = as.character(codDRS))
+
+p <- estim_drs_df %>%
+  filter(Estado==estado0) %>%
+  filter(codDRS %in% c("15001","15002","15003","15004",
+                       "15006","15007","15008","15009","15010",
+                       "15011","15012","15013","15014")) %>%
+  ggplot( aes(x=date, y=Rt)) +
+  geom_line(aes(color=nomDRS)) +
+  xlab("Data") + ylab(curva0) +
+  ylim(0,3) +
+  ggtitle(paste(estado0,":",curva0))
+ggplotly(p)
+
+p <- estim_drs_df %>%
+  filter(Estado==estado0) %>%
+  filter(codDRS %in% alto_para) %>%
+  ggplot( aes(x=date, y=Rt)) +
+  ylim(0,4) + geom_hline(yintercept=1,size=1.5) +
+  geom_line(aes(color=nomDRS)) +
+  xlab("Data") + ylab(curva0) +
+  ggtitle("Rt para alto Pará")
 ggplotly(p)
 
 

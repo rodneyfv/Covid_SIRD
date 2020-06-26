@@ -32,6 +32,13 @@ mun <- mun %>%
   dplyr::distinct()
 #View(mun)
 
+# salvando dados com nome de estados e municípios para as RS's
+est_mun_rs <- mun %>% dplyr::select(Estado,Município,codDRS) %>%
+  distinct()
+View(est_mun_rs)
+saveRDS(est_mun_rs, "./Rt_regsaude/est_mun_rs.rds")
+
+
 mun_rs <- sp::merge(shp_mun,mun, by.x = "Codigo", by.y = "Codigo")
 #plot(mun_rs)
 #View(mun_rs@data)

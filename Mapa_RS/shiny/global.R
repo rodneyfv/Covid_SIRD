@@ -14,12 +14,14 @@ library(sp)
 library(raster)
 library(plotly)
 library(openxlsx)
-
+library(shinyWidgets)
 
 # lendo os dados das RSs em um dataframe com as coordenadas e
 # codDRS, nomDRS e estado correspondentes
 mun_rs <- readRDS("../Rt_regsaude/mun_rs_coord.rds")
 # View(mun_rs)
+
+est_mun_rs <- readRDS("../Rt_regsaude/est_mun_rs.rds")
 
 # lendo os nomes dos arquivos na pasta com as curvas para
 # diferentes datas
