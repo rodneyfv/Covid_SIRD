@@ -77,23 +77,14 @@ server <- function(input, output){
     data_of_click$clickedMarker <- input$mapa_marker_click
   })
   
-  # criando o link que permite baixar os dados. usamos o
-  # renderUI para deixar esse link aparecer somente depois
-  # que algum ponto no mapa for selecionado
-  output$get_the_item <- renderUI({
-    if(is.null(data_of_click$clickedMarker) && is.null(input$estado_rs)) return()
-    req(input$mapa_marker_click)
-    req(input$selected_mun)
-    req(input$estado_rs)
-    
-    downloadLink('downloaddata', 'Baixar dados da RS') })
-  
   # comando que torna nula a variável que armazena dados de
   # clique quando a data é alterada
   observeEvent(input$dateuser,{
     data_of_click$clickedMarker <- NULL
   })
   
+  # parte que deixa nula a variável do clique quando
+  # estado ou município é alterado
   toListen <- reactive({
     list(input$estado_rs,input$selected_mun)
   })
@@ -105,16 +96,17 @@ server <- function(input, output){
   observeEvent(input$mapa_marker_click,{
       # Gera o gráfico usando o pacote plotly
       output$plot <- renderPlotly({
+        # se a variável abaixo for nula, o gráfico sendo mostrdo
+        # é referente ao estado e município nas caixas
         if(is.null(data_of_click$clickedMarker)) return()
-        # checa se algum ponto já foi selecionado antes de 
-        # fazer o plot, se não, nada aparece
-        req(input$mapa_marker_click)
-        # se a variável com dados sobre clique for nula, a data foi
-        # alterada, logo deixamos um vazio no espaço do gráfico
-        # if(is.null(data_of_click$clickedMarker)) return()
         # checando o código da RS onde o clique ocorreu
         my_place=data_of_click$clickedMarker$id
+        # variável que vai ser usada para pegar o nome da RS
         tmp2 <- mun_rs %>% filter(codDRS==my_place)
+        # aqui pegamos a curva da RS clicada. Antes checamos se
+        # tem algo em my_place, pra evitar que dê erro quando
+        # se seleciona estado/município nas caixas, o que deixa
+        # my_place vazio automaticamente
         isolate({
           req(length(my_place)>0)
           tmp <- estim_drs_df() %>% filter(codDRS==my_place)
@@ -133,16 +125,17 @@ server <- function(input, output){
   })
   
   # criando o output com um link para download dos dados
-  # sobre o ponto escolhido no mapa
+  # sobre o ponto escolhido no mapa ou estado/município
+  # escolhido nas caixas
   output$downloaddata <- downloadHandler(
     filename = function() {
       file = paste("data.xlsx", sep = "")
       return(file)
     },
     content = function(file) {
-      req(input$mapa_marker_click)
-      req(input$selected_mun)
-      req(input$estado_rs)
+      # se a variável do clique for nula, o gráfico mostrado é
+      # referente ao estado/município nas caixas, caso contrário,
+      # foi escolhido após algum clique no mapa
       if(is.null(data_of_click$clickedMarker)){
         tmp <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
           filter(Município==input$selected_mun)
@@ -156,9 +149,10 @@ server <- function(input, output){
       openxlsx::write.xlsx(tmp,file,row.names = TRUE)
     })
   
+  # variável reativa que guarda os municípios do estado selecionado
+  # na primeira caixa
   vec_mun <- reactive({
     req(input$estado_rs)
-    req(input$dateuser)
     isolate({
       vec_mun <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
         filter(codDRS %in% mun_rs[codDRS_tem_curva(),]$codDRS) %>%
@@ -167,25 +161,35 @@ server <- function(input, output){
     vec_mun
   })
   
+  # output que formará a caixa com os municípios do estado
+  # selecionado na primeira caixa
   output$get_mun <- renderUI({
     if(is.null(input$estado_rs)) return()
     req(input$dateuser)
-    req(input$estado_rs)
     isolate({
       pickerInput(
         inputId = "selected_mun",
         label = "Município",
+        # selected = NULL,
         choices = vec_mun(),
       )
     })
   })
   
+  # toda vez que o município selecionado na segunda caixa
+  # mudar, um novo gráfico irá aparecer. Se o estado for
+  # alterado também mudará o gráfico pois o município da
+  # segunda caixa mudará automaticamente
   observeEvent(input$selected_mun,{
-    req(input$selected_mun)
+    # checando o codDRS referente ao estado e município
+    # selecionados nas caixas
     tmp <- est_mun_rs %>% filter(Estado==input$estado_rs) %>%
       filter(Município==input$selected_mun)
+    # variável que terá o nomDRS referente a variável acima
     tmp2 <- mun_rs %>% filter(codDRS==tmp$codDRS)
-    
+    # a variável de dados de clique será nula quando o usuário
+    # alterar estado ou município, e nesse caso, plotamos o
+    # gráfico da RS correspondente ao município selecionado
     if(is.null(data_of_click$clickedMarker)){
       output$plot <- renderPlotly({
         isolate({ # usa isolate porque depende de estim_drs_df, que é reactive

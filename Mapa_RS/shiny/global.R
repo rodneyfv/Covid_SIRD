@@ -21,6 +21,8 @@ library(shinyWidgets)
 mun_rs <- readRDS("../Rt_regsaude/mun_rs_coord.rds")
 # View(mun_rs)
 
+# bando de dados com nome de estados, municípios e códigos
+# de RS correspondentes
 est_mun_rs <- readRDS("../Rt_regsaude/est_mun_rs.rds")
 
 # lendo os nomes dos arquivos na pasta com as curvas para

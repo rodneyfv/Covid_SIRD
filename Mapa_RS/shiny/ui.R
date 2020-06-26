@@ -15,16 +15,16 @@ ui <- fluidPage(
   # estão armazenados na variável global file_names
   column(4,dateInput("dateuser", "Data:", value = max(file_names),
                        max=max(file_names),min=min(file_names))),
+  # barra com opções de estados para escolher
   column(4,pickerInput(
     inputId = "estado_rs",
     label = "Estado",
-    selected = NULL,
     choices = est_mun_rs %>% dplyr::select(Estado) %>% distinct()
     )),
+  # barra com opções de municípios para o estado escolhido
   column(4,uiOutput("get_mun")),
-  # link para download dos dados. está com uiOutput porque ele
-  # usa renderUI, para aparecer somente quando um ponto é clicado
-  uiOutput("get_the_item"),
+  # link para download dos dados
+  downloadLink('downloaddata', 'Baixar dados da RS'),
   
   # column(4,verbatimTextOutput("comandos")),
   # caixa com opções de curvas que podem ser analisadas
