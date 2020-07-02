@@ -8,7 +8,7 @@ server <- function(input, output){
   # usuário escolhe datas diferentes
   estim_drs_df <- reactive({
     req(input$dateuser) # uma data precisa estar selecionada
-    estim_drs_df <- readRDS(paste("../Rt_regsaude/",input$dateuser,"_Rt_drs.rds",sep=""))
+    estim_drs_df <- readRDS(paste("./Rt_regsaude/",input$dateuser,"_Rt_drs.rds",sep=""))
     estim_drs_df <- left_join(estim_drs_df$Rt_date,estim_drs_df$estado_nomDRS,
                               by="codDRS")
     estim_drs_df <- estim_drs_df %>% mutate(codDRS = as.character(codDRS))

@@ -18,22 +18,22 @@ library(shinyWidgets)
 
 # lendo os dados das RSs em um dataframe com as coordenadas e
 # codDRS, nomDRS e estado correspondentes
-mun_rs <- readRDS("../Rt_regsaude/mun_rs_coord.rds")
+mun_rs <- readRDS("./Rt_regsaude/mun_rs_coord.rds")
 # View(mun_rs)
 
 # bando de dados com nome de estados, municípios e códigos
 # de RS correspondentes
-est_mun_rs <- readRDS("../Rt_regsaude/est_mun_rs.rds")
+est_mun_rs <- readRDS("./Rt_regsaude/est_mun_rs.rds")
 
 # lendo os nomes dos arquivos na pasta com as curvas para
 # diferentes datas
-file_names <- list.files("../Rt_regsaude") %>% substring(1,10)
+file_names <- list.files("./Rt_regsaude") %>% substring(1,10)
 file_names <- file_names[str_detect(file_names,"2020")]
 num_files <- length(file_names) + 1
 
 # lendo as curvas já salvas para as RSs com pelo menos
 # duas semanas epidemiológicas
-estim_drs_df <- readRDS(paste("../Rt_regsaude/",
+estim_drs_df <- readRDS(paste("./Rt_regsaude/",
                               max(file_names),"_Rt_drs.rds",sep=""))
 estim_drs_df <- left_join(estim_drs_df$Rt_date,estim_drs_df$estado_nomDRS,
                           by="codDRS")

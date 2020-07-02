@@ -88,7 +88,7 @@ tmp <- estim_drs_df %>% dplyr::select(Rt,date,codDRS)
 tmp1 <- estim_drs_df %>% dplyr::select(Estado,codDRS,nomDRS) %>% distinct()
 estim_drs_df = list(Rt_date=tmp,estado_nomDRS=tmp1)
 saveRDS(estim_drs_df, 
-        paste("./Rt_regsaude/",Sys.Date(),"_Rt_drs.rds",sep=""))
+        paste("./shiny/Rt_regsaude/",Sys.Date(),"_Rt_drs.rds",sep=""))
 
 
 # maneira que os dados vão ser colocados na forma original
