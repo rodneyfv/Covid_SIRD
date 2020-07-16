@@ -20,6 +20,7 @@ library(shinyWidgets)
 # codDRS, nomDRS e estado correspondentes
 mun_rs <- readRDS("./Rt_regsaude/mun_rs_coord.rds")
 # View(mun_rs)
+mun_rs$nomDRS <- as.character(mun_rs$nomDRS)
 
 # bando de dados com nome de estados, municípios e códigos
 # de RS correspondentes
@@ -42,10 +43,24 @@ estim_drs_df <- left_join(estim_drs_df$Rt_date,estim_drs_df$estado_nomDRS,
 # indices de mun_rs para os quais temos curvas estimadas
 codDRS_tem_curva <- which(mun_rs$codDRS %in% estim_drs_df$codDRS)
 
+# # variável com texto com nome do estado e da RS, para
+# # ser usada na popup do mapa
+# state_popup <- paste0("<strong>Estado: </strong>", 
+#                       mun_rs[codDRS_tem_curva,]$Estado, 
+#                       "<br><strong>RS: </strong>", 
+#                       mun_rs[codDRS_tem_curva,]$nomDRS)
+
+ultima_data <- max(estim_drs_df$date)
+tmp <- estim_drs_df %>% filter(date == ultima_data) %>%
+  select(codDRS,Rt)
+tmp <- mun_rs[codDRS_tem_curva,] %>% 
+  left_join(tmp, by=c("codDRS"))
+
 # variável com texto com nome do estado e da RS, para
 # ser usada na popup do mapa
 state_popup <- paste0("<strong>Estado: </strong>", 
-                      mun_rs[codDRS_tem_curva,]$Estado, 
+                      tmp$Estado, 
                       "<br><strong>RS: </strong>", 
-                      mun_rs[codDRS_tem_curva,]$nomDRS)
-
+                      tmp$nomDRS,
+                      paste("<br>Rt (",ultima_data,"): ",sep=""),
+                      round(tmp$Rt,2))
