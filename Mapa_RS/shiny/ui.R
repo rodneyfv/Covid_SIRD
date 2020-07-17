@@ -7,6 +7,21 @@ ui <- fluidPage(
   # link pra download quando necessário
   shinyjs::useShinyjs(),
 #  title = "Mapa das RSs do Brasil",
+actionButton(inputId='ab1', label="Ir para o Painel de Previsões",
+             icon = icon("th"),
+             onclick ="location.href='https://insightdataanalysis.shinyapps.io/covidforecast/'",
+             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
+
+p(),
+
+
+actionButton(inputId='ab2', label="Ir para o Painel de Subnotificação",
+             icon = icon("th"),
+             onclick ="location.href='https://insightdataanalysis.shinyapps.io/reportacao/'",
+             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
+
+  p(),
+
   br(),
   # mapa leaflet
   column(8,leafletOutput("mapa", height="600px")),
@@ -42,7 +57,7 @@ ui <- fluidPage(
   da Saúde. A RS pode ser escolhida clicando nos círculos vermelhos
     do mapa ou através da barra lateral. As informações no gráfico
     correspondem ao modelo que usa os dados mais recentes disponíveis,
-    mas que mostra valores até seis dias anteriores à última data mais recente, 
+    mas que mostra valores até sete dias anteriores à última data mais recente 
     por razões técnicas. Uma planilha com os dados da RS escolhida pode ser 
               baixada pelo usuário no link destacado.")),
   # column(4,verbatimTextOutput("comandos")),
