@@ -5,8 +5,8 @@ account: insightdataanalysis
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2580433
-bundleId: 3403431
+bundleId: 3527502
 url: https://insightdataanalysis.shinyapps.io/Rt_RS/
-when: 1594983598.01183
+when: 1597708849.63349
 asMultiple: FALSE
 asStatic: FALSE

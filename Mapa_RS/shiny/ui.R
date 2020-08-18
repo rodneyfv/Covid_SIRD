@@ -22,6 +22,12 @@ actionButton(inputId='ab2', label="Ir para o Painel de Subnotificação",
 
   p(),
 
+actionButton(inputId='ab3', label="Ir para o Painel de Atividade",
+             icon = icon("th"),
+             onclick ="location.href='https://insightdataanalysis.shinyapps.io/appatividade/'",
+             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
+p(),
+
   br(),
   # mapa leaflet
   column(8,leafletOutput("mapa", height="600px")),
@@ -49,7 +55,7 @@ actionButton(inputId='ab2', label="Ir para o Painel de Subnotificação",
   # br(),
   # column(4,paste("Última atualização:",max(file_names))),
   br(),
-  column(12,p(paste("Última atualização:",max(file_names))) ),
+  column(12,p(paste("Última atualização dos dados:",max(file_names))) ),
   br(),
   column(12,p("Informações: Neste aplicativo, o número de reprodução Rt é 
   calculado para diferentes regiões de saúde (RS), que são grupos de

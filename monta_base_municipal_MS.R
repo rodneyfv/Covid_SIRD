@@ -1,6 +1,6 @@
 
 # Nome do arquivo do min. saude
-arquivo_min_saude <- "HIST_PAINEL_COVIDBR_31mai2020.xlsx"
+arquivo_min_saude <- "HIST_PAINEL_COVIDBR_04ago2020.xlsx"
 #arquivo_min_saude <- "HIST_PAINEL_COVIDBR_19mai2020.xlsx"
 
 # Nome do arquivo a ser usado como historico
